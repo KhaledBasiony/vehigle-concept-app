@@ -2,6 +2,7 @@ import 'package:concept_designer/common/globals.dart';
 import 'package:concept_designer/common/misc.dart';
 import 'package:concept_designer/views/blocks/block.dart';
 import 'package:concept_designer/views/blocks/method.dart';
+import 'package:concept_designer/views/types/type.dart';
 import 'package:diagram_editor/diagram_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,14 +19,44 @@ class BlockLink {
     this.handlerMethod,
     this.type = LinkType.oneWay,
   });
+  @JsonKey(
+    toJson: Globals.blockToJson,
+    fromJson: Globals.blockFromJson,
+  )
   final Block from;
+
+  @JsonKey(
+    toJson: Globals.blockToJson,
+    fromJson: Globals.blockFromJson,
+  )
   final Block to;
+
+  @JsonKey(
+    toJson: _innerMethodToJson,
+    fromJson: _innerMethodFromJson,
+  )
   Method? callerMethod;
+
+  @JsonKey(
+    toJson: _innerMethodToJson,
+    fromJson: _innerMethodFromJson,
+  )
   Method? handlerMethod;
   LinkType type;
 
-  factory BlockLink.fromJson(Map<String, dynamic> json) => _$BlockLinkFromJson(json);
+  factory BlockLink.fromJson(Map<String, dynamic> json) {
+    final blockLink = _$BlockLinkFromJson(json);
+    blockLink.callerMethod =
+        blockLink.from.methods.where((element) => element.name == blockLink.callerMethod?.name).singleOrNull;
+    blockLink.handlerMethod =
+        blockLink.from.methods.where((element) => element.name == blockLink.handlerMethod?.name).singleOrNull;
+    return blockLink;
+  }
   Map<String, dynamic> toJson() => _$BlockLinkToJson(this);
+
+  static _innerMethodToJson(Method? e) => e?.name;
+  static _innerMethodFromJson(String? e) =>
+      e == null ? null : Method(returnType: const DataStruct(name: 'void'), name: e, params: []);
 }
 
 enum LinkType {
@@ -67,8 +98,11 @@ class _LinkFormState extends ConsumerState<LinkForm> {
   @override
   void initState() {
     super.initState();
-    _fromMethod = widget.linkData.callerMethod;
-    _toMethod = widget.linkData.handlerMethod;
+    _fromMethod = widget.linkData.from.methods
+        .where((element) => widget.linkData.callerMethod?.name == element.name)
+        .singleOrNull;
+    _toMethod =
+        widget.linkData.to.methods.where((element) => widget.linkData.handlerMethod?.name == element.name).singleOrNull;
     _connectionType = widget.linkData.type;
     _linkData = TextEditingController(text: _toMethod?.returnType.name);
     _linkData.addListener(() {
@@ -155,12 +189,12 @@ class _LinkFormState extends ConsumerState<LinkForm> {
                   DropdownButtonFormField(
                     decoration: borderDecoration('Handler Method (required)'),
                     value: _toMethod,
-                    items: widget.linkData.to.methods
-                        .map((method) => DropdownMenuItem(
-                              value: method,
-                              child: Text(method.name),
-                            ))
-                        .toList(),
+                    items: widget.linkData.to.methods.map((method) {
+                      return DropdownMenuItem(
+                        value: method,
+                        child: Text(method.name),
+                      );
+                    }).toList(),
                     onChanged: (newVal) {
                       setState(() {
                         _toMethod = newVal;
@@ -215,7 +249,7 @@ class _LinkFormState extends ConsumerState<LinkForm> {
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
                     if (!_formKey.currentState!.validate()) {
                       return;
                     }
@@ -223,7 +257,7 @@ class _LinkFormState extends ConsumerState<LinkForm> {
                     widget.linkData.callerMethod = _fromMethod;
                     widget.linkData.handlerMethod = _toMethod;
 
-                    Globals.linksBox.put(widget.link.id, widget.link);
+                    await Db.put(Db.linksBox, widget.link.id, widget.link.toJson());
                     widget.close();
                   },
                   child: const Text('Done'),

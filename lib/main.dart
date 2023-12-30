@@ -11,47 +11,24 @@ import 'package:file_picker/file_picker.dart';
 import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hive/hive.dart';
-import 'package:path_provider/path_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  Hive.defaultDirectory = '${(await getApplicationDocumentsDirectory()).absolute.path}/diagrams';
+  await Db.open();
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  void _putIfAbsent<T>(Box<T> box, String key, T obj) {
-    if (!box.containsKey(key)) {
-      box.put(key, obj);
-    }
-  }
-
   void _populateInit() {
-    _putIfAbsent(Globals.typesBox, 'void', const DataStruct(name: 'void'));
+    if (Db.get(Db.typesBox, DataStruct.fromJson, 'void') != null) {
+      Db.put(Db.typesBox, 'void', const DataStruct(name: 'void').toJson());
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    Hive.registerAdapter<Block>('Block', (json) => Block.fromJson(json));
-    Hive.registerAdapter<ComponentData>(
-      'ComponentData',
-      (json) => ComponentData.fromJson(
-        json,
-        decodeCustomComponentData: ComponentViewData.fromJson,
-      ),
-    );
-    Hive.registerAdapter<DataStruct>('DataStruct', (json) => DataStruct.fromJson(json));
-    Hive.registerAdapter<LinkData>(
-      'LinkData',
-      (json) => LinkData.fromJson(
-        json,
-        decodeCustomLinkData: BlockLink.fromJson,
-      ),
-    );
-
     _populateInit();
 
     return MaterialApp(
@@ -73,6 +50,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> with SingleTickerProvid
   bool _isTypesVisible = false;
   bool _isBlocksVisible = false;
   late TextEditingController _diagramNameController;
+  final _optionsFormKey = GlobalKey<FormState>();
   late AnimationController _animationController;
   late Animation<double> _sizeAnimation;
 
@@ -97,7 +75,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> with SingleTickerProvid
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
 
-    _diagramNameController = TextEditingController();
+    _diagramNameController = TextEditingController(text: 'tmp');
   }
 
   @override
@@ -108,11 +86,11 @@ class _MyHomePageState extends ConsumerState<MyHomePage> with SingleTickerProvid
   }
 
   List<Block> _updateBlocks() {
-    return List<Block>.from(Globals.blocksBox.getAll(Globals.blocksBox.keys));
+    return List<Block>.from(Db.getAll(Db.blocksBox, Block.fromJson));
   }
 
   List<DataStruct> _updateTypes() {
-    return List<DataStruct>.from(Globals.typesBox.getAll(Globals.typesBox.keys));
+    return List<DataStruct>.from(Db.getAll(Db.typesBox, DataStruct.fromJson));
   }
 
   void _showTypeEditor([DataStruct? type]) {
@@ -154,18 +132,25 @@ class _MyHomePageState extends ConsumerState<MyHomePage> with SingleTickerProvid
     });
   }
 
-  void _clearDiagram() {
-    setState(() {
-      Globals.componentsBox.clear();
-      Globals.linksBox.clear();
-    });
+  void _clearDiagram() async {
+    await Db.clearAll(Db.componentsBox);
+    await Db.clearAll(Db.linksBox);
+    final selectionNotifier = ref.read(Globals.selectionsProvider.notifier);
+    selectionNotifier.updateBlock(null);
+    selectionNotifier.updateComponentId(null);
+    selectionNotifier.updateLink(null);
+    selectionNotifier.updateType(null);
+    setState(() {});
   }
 
   void _saveDiagram() {
-    final components = Globals.componentsBox.getAll(Globals.componentsBox.keys);
-    final links = Globals.linksBox.getAll(Globals.linksBox.keys);
-    final types = Globals.typesBox.getAll(Globals.typesBox.keys);
-    final blocks = Globals.blocksBox.getAll(Globals.blocksBox.keys);
+    if (!_optionsFormKey.currentState!.validate()) {
+      return;
+    }
+    final components = Db.getAll(Db.componentsBox, Globals.componentDataFromJson);
+    final links = Db.getAll(Db.linksBox, Globals.linkDataFromJson);
+    final types = Db.getAll(Db.typesBox, DataStruct.fromJson);
+    final blocks = Db.getAll(Db.blocksBox, Block.fromJson);
 
     final fileBytes = utf8.encode(jsonEncode({
       'components': components,
@@ -213,37 +198,38 @@ class _MyHomePageState extends ConsumerState<MyHomePage> with SingleTickerProvid
         final fileName = res.files.singleOrNull?.name;
 
         // sets diagram name to file name after removing '.json' extension
-        _diagramNameController.text = fileName?.substring(0, fileName.length - 5) ?? '';
+        _diagramNameController.text = fileName?.substring(0, fileName.length - 5).replaceAll(RegExp(r'\s'), '_') ?? '';
         final bytes = res.files.singleOrNull?.bytes;
         if (bytes != null) {
           final json = jsonDecode(utf8.decode(bytes));
           // Clear previous data
-          Globals.componentsBox.clear();
-          Globals.linksBox.clear();
-
-          // Load components
-          final components = (json['components'] as List? ?? []).map(
-            (element) {
-              return ComponentData.fromJson(element, decodeCustomComponentData: ComponentViewData.fromJson);
-            },
-          ).toList();
-          Globals.componentsBox.putAll(Map.fromEntries(components.map((e) => MapEntry(e.id, e)).toList()));
-
-          // Load links
-          final links = (json['links'] as List? ?? []).map(
-            (element) {
-              return LinkData.fromJson(element, decodeCustomLinkData: BlockLink.fromJson);
-            },
-          ).toList();
-          Globals.linksBox.putAll(Map.fromEntries(links.map((e) => MapEntry(e.id, e)).toList()));
+          Db.clearAll(Db.componentsBox);
+          Db.clearAll(Db.linksBox);
 
           // Load types
           final types = (json['types'] as List? ?? []).map((element) => DataStruct.fromJson(element)).toList();
-          Globals.typesBox.putAll(Map.fromEntries(types.map((e) => MapEntry(e.name, e)).toList()));
+          await Db.putAll(Db.typesBox, Map.fromEntries(types.map((e) => MapEntry(e.name, e.toJson())).toList()));
 
           // Load blocks
           final blocks = (json['blocks'] as List? ?? []).map((element) => Block.fromJson(element)).toList();
-          Globals.blocksBox.putAll(Map.fromEntries(blocks.map((e) => MapEntry(e.name, e)).toList()));
+          await Db.putAll(Db.blocksBox, Map.fromEntries(blocks.map((e) => MapEntry(e.name, e.toJson())).toList()));
+
+          // Load components
+          final components = (json['components'] as List? ?? [])
+              .map(
+                (element) => Globals.componentDataFromJson(element),
+              )
+              .toList();
+          await Db.putAll(
+              Db.componentsBox, Map.fromEntries(components.map((e) => MapEntry(e.id, e.toJsonMod())).toList()));
+
+          // Load links
+          final links = (json['links'] as List? ?? [])
+              .map(
+                (element) => Globals.linkDataFromJson(element),
+              )
+              .toList();
+          await Db.putAll(Db.linksBox, Map.fromEntries(links.map((e) => MapEntry(e.id, e.toJson())).toList()));
 
           setState(() {});
         }
@@ -297,6 +283,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> with SingleTickerProvid
               title: TextFormField(
                 controller: _diagramNameController,
                 decoration: borderDecoration(''),
+                validator: nonEmptyStringValidator,
               ),
             ),
             const ListTile(
@@ -370,7 +357,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> with SingleTickerProvid
                         child: Padding(
                           padding: const EdgeInsets.all(8.0),
                           child: StreamBuilder(
-                            stream: Globals.typesBox.watch(),
+                            stream: Db.watch(Db.typesBox),
                             builder: (context, snapshot) {
                               final types = _updateTypes();
                               return DataStructsContainer(
@@ -408,7 +395,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> with SingleTickerProvid
                         child: Padding(
                           padding: const EdgeInsets.all(8.0),
                           child: StreamBuilder(
-                            stream: Globals.blocksBox.watch(),
+                            stream: Db.watch(Db.blocksBox),
                             builder: (context, snapshot) {
                               final blocks = _updateBlocks();
                               return BlocksContainer(

@@ -7,16 +7,13 @@ part of 'method.dart';
 // **************************************************************************
 
 Method _$MethodFromJson(Map<String, dynamic> json) => Method(
-      returnType:
-          DataStruct.fromJson(json['returnType'] as Map<String, dynamic>),
+      returnType: Globals.typeFromJson(json['returnType'] as String),
       name: json['name'] as String,
-      params: (json['params'] as List<dynamic>)
-          .map((e) => Attribute.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      params: Globals.attsFromJson(json['params'] as List),
     );
 
 Map<String, dynamic> _$MethodToJson(Method instance) => <String, dynamic>{
-      'returnType': instance.returnType,
-      'params': instance.params,
+      'returnType': Globals.typeToJson(instance.returnType),
+      'params': Globals.attsToJson(instance.params),
       'name': instance.name,
     };

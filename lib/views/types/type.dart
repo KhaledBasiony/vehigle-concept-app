@@ -16,6 +16,11 @@ class DataStruct {
     this.fields = const [],
   });
   final String name;
+
+  @JsonKey(
+    toJson: Globals.attsToJson,
+    fromJson: Globals.attsFromJson,
+  )
   final List<Attribute> fields;
 
   bool get isPrimitive => fields.isEmpty;
@@ -140,7 +145,7 @@ class _DataStructFormState extends State<DataStructForm> {
                       child: const Text('Cancel'),
                     ),
                     ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         if (!_formKey.currentState!.validate()) {
                           return;
                         }
@@ -152,7 +157,7 @@ class _DataStructFormState extends State<DataStructForm> {
                               )
                               .toList(),
                         );
-                        Globals.typesBox.put(struct.name, struct);
+                        await Db.put(Db.typesBox, struct.name, struct.toJson());
                         widget.close();
                       },
                       child: const Text('Done'),

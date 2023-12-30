@@ -22,8 +22,19 @@ class Block {
   });
 
   final String name;
+
+  @JsonKey(
+    toJson: Globals.attsToJson,
+    fromJson: Globals.attsFromJson,
+  )
   final List<Attribute> attributes;
+
+  @JsonKey(
+    toJson: Globals.methodsToJson,
+    fromJson: Globals.methodsFromJson,
+  )
   final List<Method> methods;
+
   final String pseudoCode;
 
   factory Block.fromJson(Map<String, dynamic> json) => _$BlockFromJson(json);
@@ -129,14 +140,14 @@ class _BlockFormState extends State<BlockForm> {
     super.dispose();
   }
 
-  DataStruct _resolveType(String typeName) {
-    final existingType = Globals.typesBox.get(typeName);
+  Future<DataStruct> _resolveType(String typeName) async {
+    final existingType = Db.get(Db.typesBox, DataStruct.fromJson, typeName);
     if (existingType != null) {
       return existingType;
     }
 
     final newType = DataStruct(name: typeName);
-    Globals.typesBox.put(newType.name, newType);
+    await Db.put(Db.typesBox, newType.name, newType.toJson());
     return newType;
   }
 
@@ -185,7 +196,7 @@ class _BlockFormState extends State<BlockForm> {
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
                     if (!_formKey.currentState!.validate()) {
                       return;
                     }
@@ -202,10 +213,10 @@ class _BlockFormState extends State<BlockForm> {
                       },
                     ).toList();
 
-                    final blockMethods = _methodsControllers.map(
-                      (methodFields) {
+                    final blockMethods = await Future.wait(_methodsControllers.map(
+                      (methodFields) async {
                         return Method(
-                          returnType: _resolveType(methodFields.returnTypeController.text),
+                          returnType: await _resolveType(methodFields.returnTypeController.text),
                           name: methodFields.nameController.text,
                           params: methodFields.parametersControllers.map(
                             (paramFields) {
@@ -218,14 +229,14 @@ class _BlockFormState extends State<BlockForm> {
                           ).toList(),
                         );
                       },
-                    ).toList();
+                    ).toList());
                     final block = Block(
                       name: blockName,
                       attributes: blockAtts,
                       methods: blockMethods,
                     );
 
-                    Globals.blocksBox.put(block.name, block);
+                    await Db.put(Db.blocksBox, block.name, block.toJson());
                     widget.close();
                   },
                   child: const Text('Done'),

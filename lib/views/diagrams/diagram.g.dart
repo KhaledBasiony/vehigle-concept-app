@@ -8,11 +8,11 @@ part of 'diagram.dart';
 
 ComponentViewData _$ComponentViewDataFromJson(Map<String, dynamic> json) =>
     ComponentViewData(
-      block: Block.fromJson(json['block'] as Map<String, dynamic>),
+      block: Globals.blockFromJson(json['block'] as String),
     )..isHighlightVisible = json['isHighlightVisible'] as bool;
 
 Map<String, dynamic> _$ComponentViewDataToJson(ComponentViewData instance) =>
     <String, dynamic>{
       'isHighlightVisible': instance.isHighlightVisible,
-      'block': instance.block,
+      'block': Globals.blockToJson(instance.block),
     };

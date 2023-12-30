@@ -8,14 +8,13 @@ part of 'type.dart';
 
 DataStruct _$DataStructFromJson(Map<String, dynamic> json) => DataStruct(
       name: json['name'] as String,
-      fields: (json['fields'] as List<dynamic>?)
-              ?.map((e) => Attribute.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          const [],
+      fields: json['fields'] == null
+          ? const []
+          : Globals.attsFromJson(json['fields'] as List),
     );
 
 Map<String, dynamic> _$DataStructToJson(DataStruct instance) =>
     <String, dynamic>{
       'name': instance.name,
-      'fields': instance.fields,
+      'fields': Globals.attsToJson(instance.fields),
     };

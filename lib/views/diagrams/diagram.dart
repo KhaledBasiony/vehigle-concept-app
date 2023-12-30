@@ -53,6 +53,14 @@ class _DiagramViewState extends ConsumerState<DiagramView> {
   }
 }
 
+extension Jsonify on ComponentData {
+  Map<String, dynamic> toJsonMod() {
+    var json = toJson();
+    json['connections'] = connections.map((e) => e.toJson()).toList();
+    return json;
+  }
+}
+
 // Custom component Data which you can assign to a component to dynamic data property.
 @JsonSerializable()
 class ComponentViewData {
@@ -61,6 +69,11 @@ class ComponentViewData {
   });
 
   bool isHighlightVisible = false;
+
+  @JsonKey(
+    toJson: Globals.blockToJson,
+    fromJson: Globals.blockFromJson,
+  )
   final Block block;
 
   showHighlight() {
@@ -116,8 +129,8 @@ class MyPolicySet extends PolicySet
   }
 
   _loadFromDb() {
-    Globals.componentsBox.getAll(Globals.componentsBox.keys).forEach((e) => canvasWriter.model.addComponent(e!));
-    Globals.linksBox.getAll(Globals.linksBox.keys).forEach((e) => canvasReader.model.canvasModel.addLink(e!));
+    Db.getAll(Db.componentsBox, Globals.componentDataFromJson).forEach((e) => canvasWriter.model.addComponent(e!));
+    Db.getAll(Db.linksBox, Globals.linkDataFromJson).forEach((e) => canvasReader.model.canvasModel.addLink(e!));
   }
 
   @override
@@ -137,10 +150,16 @@ class MyPolicySet extends PolicySet
   }
 
   @override
-  onCanvasTapUp(TapUpDetails details) {
+  onCanvasTapUp(TapUpDetails details) async {
     canvasWriter.model.hideAllLinkJoints();
     if (selectedComponentId != null) {
+      final bak = selectedComponentId!;
       _hideComponentHighlight(selectedComponentId);
+
+      // Retrieve created component
+      final component = canvasReader.model.getComponent(bak);
+      // Add component to database.
+      await Db.put(Db.componentsBox, bak, component.toJsonMod());
     } else {
       final selectedBlock = selections.block;
       if (selectedBlock != null) {
@@ -157,7 +176,7 @@ class MyPolicySet extends PolicySet
         final component = canvasReader.model.getComponent(componentId);
 
         // Add component to database.
-        Globals.componentsBox.put(componentId, component);
+        await Db.put(Db.componentsBox, componentId, component.toJsonMod());
 
         // Update selections to notify it is no longer selected/highlighted.
         ref.read(Globals.selectionsProvider.notifier).updateBlock(null);
@@ -166,7 +185,7 @@ class MyPolicySet extends PolicySet
   }
 
   @override
-  onLinkTap(String linkId) {
+  onLinkTap(String linkId) async {
     final link = canvasReader.model.getLink(linkId);
 
     final isSelected = link.linkStyle.color == _DiagramColors.linkSelected;
@@ -183,13 +202,42 @@ class MyPolicySet extends PolicySet
       ref.read(Globals.selectionsProvider.notifier).updateLink(link);
     }
     canvasWriter.model.updateLink(linkId);
+
+    // Retrieve created component
+    final linkAfter = canvasReader.model.getLink(linkId);
+
+    // Add component to database.
+    await Db.put(Db.linksBox, linkId, linkAfter.toJson());
   }
 
   @override
-  onComponentTap(String componentId) {
+  onLinkScaleEnd(String linkId, ScaleEndDetails details) async {
+    // Retrieve created component
+    final linkAfter = canvasReader.model.getLink(linkId);
+
+    // Add component to database.
+    await Db.put(Db.linksBox, linkId, linkAfter.toJson());
+  }
+
+  @override
+  onLinkJointLongPress(int jointIndex, String linkId) async {
+    super.onLinkJointLongPress(jointIndex, linkId);
+    final linkAfter = canvasReader.model.getLink(linkId);
+    await Db.put(Db.linksBox, linkId, linkAfter.toJson());
+  }
+
+  @override
+  onLinkJointScaleEnd(int jointIndex, String linkId, ScaleEndDetails details) async {
+    super.onLinkJointScaleEnd(jointIndex, linkId, details);
+    final linkAfter = canvasReader.model.getLink(linkId);
+    await Db.put(Db.linksBox, linkId, linkAfter.toJson());
+  }
+
+  @override
+  onComponentTap(String componentId) async {
     canvasWriter.model.hideAllLinkJoints();
 
-    bool connected = connectComponents(selectedComponentId, componentId);
+    bool connected = await connectComponents(selectedComponentId, componentId);
     _hideComponentHighlight(selectedComponentId);
     if (!connected) {
       _highlightComponent(componentId);
@@ -197,10 +245,17 @@ class MyPolicySet extends PolicySet
   }
 
   @override
-  onComponentLongPress(String componentId) {
+  onComponentLongPress(String componentId) async {
+    final connectedLinksIds = canvasReader.model.getComponent(componentId).connections.map((connection) {
+      return connection.connectionId;
+    }).toList();
+
     _hideComponentHighlight(selectedComponentId);
     canvasWriter.model.hideAllLinkJoints();
     canvasWriter.model.removeComponent(componentId);
+
+    await Db.clearAll(Db.linksBox, connectedLinksIds);
+    await Db.clearAll(Db.componentsBox, [componentId]);
   }
 
   @override
@@ -209,17 +264,26 @@ class MyPolicySet extends PolicySet
   }
 
   @override
-  onComponentScaleUpdate(componentId, details) {
+  onComponentScaleEnd(String componentId, ScaleEndDetails details) async {
+    super.onComponentScaleEnd(componentId, details);
+    final updatedComponent = canvasReader.model.getComponent(componentId);
+    await Db.put(Db.componentsBox, componentId, updatedComponent.toJsonMod());
+
+    final updatedLinks = updatedComponent.connections.map((connection) {
+      return canvasReader.model.getLink(connection.connectionId);
+    }).toList();
+    await Db.putAll(Db.linksBox, Map.fromEntries(updatedLinks.map((e) => MapEntry(e.id, e.toJson()))));
+  }
+
+  @override
+  onComponentScaleUpdate(componentId, details) async {
     Offset positionDelta = details.localFocalPoint - lastFocalPoint;
     canvasWriter.model.moveComponent(componentId, positionDelta);
     lastFocalPoint = details.localFocalPoint;
-
-    final updatedComponent = canvasReader.model.getComponent(componentId);
-    Globals.componentsBox.put(componentId, updatedComponent);
   }
 
   // This function tests if it's possible to connect the components and if yes, connects them
-  bool connectComponents(String? sourceComponentId, String? targetComponentId) {
+  Future<bool> connectComponents(String? sourceComponentId, String? targetComponentId) async {
     if (sourceComponentId == null || targetComponentId == null) {
       return false;
     }
@@ -253,9 +317,10 @@ class MyPolicySet extends PolicySet
 
     link.data = BlockLink(from: from, to: to);
 
-    Globals.linksBox.put(
+    await Db.put(
+      Db.linksBox,
       linkId,
-      link,
+      link.toJson(),
     );
 
     return true;

@@ -12,8 +12,9 @@ dependencies:
     sdk: flutter
 
   diagram_editor: ^0.1.8
-  hive: ^4.0.0-dev.2
-  isar_flutter_libs: ^4.0.0-dev.13
+  sembast: ^3.5.0+1
+  sembast_web: ^2.2.0
+  sembast_sqflite: ^2.2.0
   path_provider: ^2.1.0
   json_annotation: ^4.8.1
   cupertino_icons: ^1.0.2

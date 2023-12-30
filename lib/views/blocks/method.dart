@@ -1,3 +1,4 @@
+import 'package:concept_designer/common/globals.dart';
 import 'package:concept_designer/views/blocks/attribute.dart';
 import 'package:concept_designer/views/types/type.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +13,17 @@ class Method {
     required this.name,
     required this.params,
   });
+
+  @JsonKey(
+    toJson: Globals.typeToJson,
+    fromJson: Globals.typeFromJson,
+  )
   final DataStruct returnType;
+
+  @JsonKey(
+    toJson: Globals.attsToJson,
+    fromJson: Globals.attsFromJson,
+  )
   final List<Attribute> params;
   final String name;
 
