@@ -15,7 +15,6 @@ import 'package:sembast_web/sembast_web.dart';
 
 abstract class Globals {
   static final myTheme = ThemeData(
-    textTheme: Typography.englishLike2021,
     colorScheme: ColorScheme.fromSeed(
       seedColor: Colors.deepPurple,
       brightness: Brightness.dark,

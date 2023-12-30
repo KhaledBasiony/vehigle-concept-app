@@ -56,9 +56,9 @@ class BaseView extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: DefaultTextStyle(
+                        child: Text(
+                          title,
                           style: Globals.myTheme.textTheme.titleLarge!,
-                          child: LeftText(text: title),
                         ),
                       ),
                       DeleteIcon(onDelete: onDelete ?? () {}),

@@ -66,10 +66,10 @@ class BlockView extends StatelessWidget {
       isSelected: isSelected,
       title: block.name,
       children: [
-        const LeftText(text: 'Attributes'),
+        const Text('Attributes'),
         for (final att in block.attributes) AttributeView(attribute: att),
         const HDivider(),
-        const LeftText(text: 'Methods'),
+        const Text('Methods'),
         for (final method in block.methods) MethodView(method: method)
       ],
     );

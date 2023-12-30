@@ -33,20 +33,6 @@ class MaxWidthBox extends StatelessWidget {
   }
 }
 
-class LeftText extends StatelessWidget {
-  const LeftText({super.key, required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: AlignmentDirectional.centerStart,
-      child: Text(text),
-    );
-  }
-}
-
 InputDecoration borderDecoration(String text) => InputDecoration(
       labelText: text,
       border: const OutlineInputBorder(),
