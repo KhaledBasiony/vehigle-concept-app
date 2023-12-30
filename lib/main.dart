@@ -158,12 +158,13 @@ class _MyHomePageState extends ConsumerState<MyHomePage> with SingleTickerProvid
       'types': types,
       'blocks': blocks,
     }));
-    FileSaver().saveFile(name: _diagramNameController.text, bytes: fileBytes, ext: 'json').then(
-      (value) {
+
+    FileSaver.instance.saveFile(name: _diagramNameController.text, bytes: fileBytes, ext: 'json').then(
+      (path) {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            content: Text('Diagram Saved Successfully At: $value'),
+            content: Text('Diagram Saved Successfully At: $path'),
           ),
         );
       },
@@ -280,10 +281,13 @@ class _MyHomePageState extends ConsumerState<MyHomePage> with SingleTickerProvid
               title: Text('Diagram Name:'),
             ),
             ListTile(
-              title: TextFormField(
-                controller: _diagramNameController,
-                decoration: borderDecoration(''),
-                validator: nonEmptyStringValidator,
+              title: Form(
+                key: _optionsFormKey,
+                child: TextFormField(
+                  controller: _diagramNameController,
+                  decoration: borderDecoration(''),
+                  validator: nonEmptyStringValidator,
+                ),
               ),
             ),
             const ListTile(
