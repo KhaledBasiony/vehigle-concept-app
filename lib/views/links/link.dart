@@ -2,6 +2,7 @@ import 'package:concept_designer/common/globals.dart';
 import 'package:concept_designer/common/misc.dart';
 import 'package:concept_designer/views/blocks/block.dart';
 import 'package:concept_designer/views/blocks/method.dart';
+import 'package:concept_designer/views/diagrams/diagram.dart';
 import 'package:concept_designer/views/types/type.dart';
 import 'package:diagram_editor/diagram_editor.dart';
 import 'package:flutter/material.dart';
@@ -257,7 +258,7 @@ class _LinkFormState extends ConsumerState<LinkForm> {
                     widget.linkData.callerMethod = _fromMethod;
                     widget.linkData.handlerMethod = _toMethod;
 
-                    await Db.put(Db.linksBox, widget.link.id, widget.link.toJson());
+                    await Db.put(Db.linksBox, widget.link.id, widget.link.toJsonMod());
                     widget.close();
                   },
                   child: const Text('Done'),

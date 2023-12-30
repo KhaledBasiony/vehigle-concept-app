@@ -230,7 +230,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> with SingleTickerProvid
                 (element) => Globals.linkDataFromJson(element),
               )
               .toList();
-          await Db.putAll(Db.linksBox, Map.fromEntries(links.map((e) => MapEntry(e.id, e.toJson())).toList()));
+          await Db.putAll(Db.linksBox, Map.fromEntries(links.map((e) => MapEntry(e.id, e.toJsonMod())).toList()));
 
           setState(() {});
         }

@@ -53,10 +53,18 @@ class _DiagramViewState extends ConsumerState<DiagramView> {
   }
 }
 
-extension Jsonify on ComponentData {
+extension JsonifyComponent on ComponentData {
   Map<String, dynamic> toJsonMod() {
-    var json = toJson();
+    final json = toJson();
     json['connections'] = connections.map((e) => e.toJson()).toList();
+    return json;
+  }
+}
+
+extension JsonifyLink on LinkData {
+  Map<String, dynamic> toJsonMod() {
+    final json = toJson();
+    json['link_style'] = linkStyle.toJson();
     return json;
   }
 }
@@ -207,7 +215,7 @@ class MyPolicySet extends PolicySet
     final linkAfter = canvasReader.model.getLink(linkId);
 
     // Add component to database.
-    await Db.put(Db.linksBox, linkId, linkAfter.toJson());
+    await Db.put(Db.linksBox, linkId, linkAfter.toJsonMod());
   }
 
   @override
@@ -216,21 +224,21 @@ class MyPolicySet extends PolicySet
     final linkAfter = canvasReader.model.getLink(linkId);
 
     // Add component to database.
-    await Db.put(Db.linksBox, linkId, linkAfter.toJson());
+    await Db.put(Db.linksBox, linkId, linkAfter.toJsonMod());
   }
 
   @override
   onLinkJointLongPress(int jointIndex, String linkId) async {
     super.onLinkJointLongPress(jointIndex, linkId);
     final linkAfter = canvasReader.model.getLink(linkId);
-    await Db.put(Db.linksBox, linkId, linkAfter.toJson());
+    await Db.put(Db.linksBox, linkId, linkAfter.toJsonMod());
   }
 
   @override
   onLinkJointScaleEnd(int jointIndex, String linkId, ScaleEndDetails details) async {
     super.onLinkJointScaleEnd(jointIndex, linkId, details);
     final linkAfter = canvasReader.model.getLink(linkId);
-    await Db.put(Db.linksBox, linkId, linkAfter.toJson());
+    await Db.put(Db.linksBox, linkId, linkAfter.toJsonMod());
   }
 
   @override
@@ -272,7 +280,7 @@ class MyPolicySet extends PolicySet
     final updatedLinks = updatedComponent.connections.map((connection) {
       return canvasReader.model.getLink(connection.connectionId);
     }).toList();
-    await Db.putAll(Db.linksBox, Map.fromEntries(updatedLinks.map((e) => MapEntry(e.id, e.toJson()))));
+    await Db.putAll(Db.linksBox, Map.fromEntries(updatedLinks.map((e) => MapEntry(e.id, e.toJsonMod()))));
   }
 
   @override
@@ -320,7 +328,7 @@ class MyPolicySet extends PolicySet
     await Db.put(
       Db.linksBox,
       linkId,
-      link.toJson(),
+      link.toJsonMod(),
     );
 
     return true;

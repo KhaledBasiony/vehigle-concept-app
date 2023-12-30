@@ -22,15 +22,55 @@ abstract class Globals {
     useMaterial3: true,
   );
 
-  static LinkData linkDataFromJson(Map<String, dynamic> json) => LinkData.fromJson(
-        json,
-        decodeCustomLinkData: BlockLink.fromJson,
-      );
+  static LinkData linkDataFromJson(Map<String, dynamic> json) {
+    final styleJson = json['link_style'];
+    final linkStyle = LinkStyle(
+      lineType: LineType.values[styleJson['line_type']],
+      arrowType: ArrowType.values[styleJson['arrow_type']],
+      backArrowType: ArrowType.values[styleJson['back_arrow_type']],
+      arrowSize: (styleJson['arrow_size'] as num).toDouble(),
+      backArrowSize: (styleJson['back_arrow_size'] as num).toDouble(),
+      lineWidth: (styleJson['line_width'] as num).toDouble(),
+      color: Color(int.parse(styleJson['color'], radix: 16)),
+    );
 
-  static ComponentData componentDataFromJson(Map<String, dynamic> json) => ComponentData.fromJson(
-        json,
-        decodeCustomComponentData: ComponentViewData.fromJson,
-      );
+    final link = LinkData(
+      id: json['id'],
+      sourceComponentId: json['source_component_id'],
+      targetComponentId: json['target_component_id'],
+      linkStyle: linkStyle,
+      linkPoints: (json['link_points'] as List)
+          .map(
+            (point) => Offset(
+              (point[0] as num).toDouble(),
+              (point[1] as num).toDouble(),
+            ),
+          )
+          .toList(),
+      data: BlockLink.fromJson(json['dynamic_data']),
+    );
+
+    return link;
+  }
+
+  static ComponentData componentDataFromJson(Map<String, dynamic> json) {
+    final component = ComponentData(
+      id: json['id'],
+      position: Offset((json['position'][0] as num).toDouble(), (json['position'][1] as num).toDouble()),
+      size: Size((json['size'][0] as num).toDouble(), (json['size'][1] as num).toDouble()),
+      minSize: Size((json['min_size'][0] as num).toDouble(), (json['min_size'][1] as num).toDouble()),
+      type: json['type'],
+      data: ComponentViewData.fromJson(
+        json['dynamic_data'],
+      ),
+    );
+    component.zOrder = json['z_order'] as int;
+    component.parentId = json['parent_id'];
+    component.childrenIds.addAll((json['children_ids'] as List).map((id) => id as String).toList());
+    component.connections
+        .addAll((json['connections'] as List).map((connectionJson) => Connection.fromJson(connectionJson)));
+    return component;
+  }
 
   static String typeToJson(DataStruct e) => e.name;
   static DataStruct typeFromJson(String e) => Db.get(Db.typesBox, DataStruct.fromJson, e) ?? DataStruct(name: e);
